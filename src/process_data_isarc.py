@@ -28,9 +28,13 @@ TEST_DATASET_FILE = "../data/isarcasm_test_data.csv"
 
 DATUM_KEYS = sorted(["i", "y", "id", "text", "label", "num_words", "split"])
 
+
 def load_csv(dataset_file):
 	revs = []
 	if not os.path.exists(dataset_file):
+		with open(dataset_file, 'w') as f:
+			writer = csv.DictWriter(f, fieldnames=DATUM_KEYS)
+			writer.writeheader()
 		return revs, 0
 
 	i = 0
@@ -44,15 +48,20 @@ def load_csv(dataset_file):
 			
 	return revs, i
 
+
 def fetch_tweet(tweet_id):
 	tweetFetched = api.get_status(tweet_id)
 	return tweetFetched.text
 
-def construct_vocab(revs, vocab):
+
+def construct_vocab(revs):
+	vocab = defaultdict(float)
 	for rev in revs:
-		words = set(orig_rev.split())
+		words = set(rev["text"].split())
 		for word in words:
 			vocab[word] += 1
+	return vocab
+
 
 def fetch_data(data, data_type, clean_string=True):
 	dataset_file = None
@@ -70,9 +79,8 @@ def fetch_data(data, data_type, clean_string=True):
 		print("all {} data loaded.....".format(data_type))
 		return revs
 
-	with open(dataset_file, 'w') as f:
+	with open(dataset_file, 'a') as f:
 		writer = csv.DictWriter(f, fieldnames=DATUM_KEYS)
-		writer.writeheader()
 
 		for i in range(start, len(data)):
 			line = data[i]
@@ -124,7 +132,7 @@ def fetch_data(data, data_type, clean_string=True):
 	return revs
 
 
-def build_data_cv(data_folder, cv=10, clean_string=True):
+def build_data_cv(data_folder, clean_string=True):
 	isarc_train_file = data_folder[0]
 	isarc_test_file = data_folder[1]
 
@@ -133,17 +141,16 @@ def build_data_cv(data_folder, cv=10, clean_string=True):
 	# print("train_data: {}".format(train_data))
 	# tweet_id | sarcasm_label | sarcasm_type
 
-
 	revs = []
 	revs_train = fetch_data(train_data, "train", clean_string=True)
 	revs_test = fetch_data(test_data, "test", clean_string=True)
 	print("loaded train dataset size = {}, test dataset size ={}".format(len(revs_train), len(revs_test)))
 
-	revs.append(revs_train)
-	revs.append(revs_test)
+	revs.extend(revs_train)
+	revs.extend(revs_test)
+	print("revs size = {}".format(len(revs)))
 
-	vocab = defaultdict(float)
-	construct_vocab(revs)
+	vocab = construct_vocab(revs)
 
 	return revs, vocab
 
@@ -169,19 +176,77 @@ def clean_str(string, TREC=False):
 	return string.strip() if TREC else string.strip().lower()
 
 
+def add_unknown_words(word_vecs, vocab, min_df=1, k=300):
+	"""
+	For words that occur in at least min_df documents, create a separate word vector.    
+	0.25 is chosen so the unknown vectors have (approximately) same variance as pre-trained ones
+	"""
+	for word in vocab:
+		if word not in word_vecs and vocab[word] >= min_df:
+			word_vecs[word] = np.random.uniform(-0.25,0.25,k) 
+
+
+def load_fasttext(fname, vocab):
+	"""
+	Loads 300x1 word vecs from Fasttext
+	"""
+	print("Loading FastText Model")
+	f = open(fname,'r')
+	model = {}
+	for line in f:
+		splitLine = line.split()
+		word = splitLine[0]
+		embedding = np.array([float(val) for val in splitLine[1:]])
+		if word in vocab:
+			   model[word] = embedding
+
+	print("Done.", len(model), " words loaded!")
+	return model
+
+
+def get_W(word_vecs, k=300):
+	"""
+	Get word matrix. W[i] is the vector for word indexed by i
+	"""
+	vocab_size = len(word_vecs)
+	word_idx_map = dict()
+	W = np.zeros(shape=(vocab_size+1, k), dtype='float32')            
+	W[0] = np.zeros(k, dtype='float32')
+	i = 1
+	for word in word_vecs:
+		W[i] = word_vecs[word]
+		word_idx_map[word] = i
+		i += 1
+	return W, word_idx_map
+
+
 if __name__=="__main__":  
+
+	w2v_file = sys.argv[1] # fasttext embedding file
 
 	data_folder = [TRAIN_MAP_FILE,TEST_MAP_FILE] 
 	print("loading data...")
-	revs, vocab = build_data_cv(data_folder,  cv=10, clean_string=True)
-	max_l = np.max(pd.DataFrame(revs)["num_words"])
+	revs, vocab = build_data_cv(data_folder, clean_string=True)
+	max_l = np.max(np.array(pd.DataFrame(revs)["num_words"]).astype(int))
 
 	print("number of sentences: " + str(len(revs)))
 	print("vocab size: " + str(len(vocab)))
 	print("max sentence length: " + str(max_l))
 
 	print("loading word2vec vectors...")
-	# w2v_file = sys.argv[1] # fasttext embedding file
+	
+	w2v = load_fasttext(w2v_file, vocab) 
+	print("word2vec loaded!")
+	print("num words already in word2vec: " + str(len(w2v)))
+	add_unknown_words(w2v, vocab)
+
+	W, word_idx_map = get_W(w2v)
+	rand_vecs = {}
+	add_unknown_words(rand_vecs, vocab)
+	W2, _ = get_W(rand_vecs)
+	pickle.dump([revs, W, W2, word_idx_map, vocab, max_l], open("mainbalancedpickle.p", "wb"))
+	print("dataset created!")
+
 
 
 

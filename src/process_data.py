@@ -205,6 +205,8 @@ if __name__=="__main__":
     print("loading data...")
     revs, vocab = build_data_cv(data_folder,  cv=10, clean_string=True)
     max_l = np.max(pd.DataFrame(revs)["num_words"])
+    print("revs")
+    print(pd.DataFrame(revs))
     print("data loaded!")
     print("number of sentences: " + str(len(revs)))
     print("vocab size: " + str(len(vocab)))
