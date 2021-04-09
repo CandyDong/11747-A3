@@ -31,7 +31,7 @@ DATUM_KEYS = sorted(["i", "y", "id", "text", "label", "num_words", "split"])
 def load_csv(dataset_file):
 	revs = []
 	if not os.path.exists(dataset_file):
-		return revs
+		return revs, 0
 
 	i = 0
 	with open(dataset_file, 'r') as f:
@@ -64,17 +64,19 @@ def fetch_data(data, data_type, clean_string=True):
 		raise AssertionError("data_type is {}".format(data_type))
 
 	revs, start = load_csv(dataset_file)
-	print("{} {} data loaded.....".format(len(revs), data_type))
+	print("{} {} data loaded....., starting from {}".format(len(revs), data_type, start))
 
 	if start == len(data):
 		print("all {} data loaded.....".format(data_type))
-		return	
+		return revs
 
 	with open(dataset_file, 'w') as f:
 		writer = csv.DictWriter(f, fieldnames=DATUM_KEYS)
 		writer.writeheader()
 
-		for i, line in enumerate(data[start:]):
+		for i in range(start, len(data)):
+			line = data[i]
+
 			rev = []
 			label_str = line[1]
 			if (label_str == "not_sarcastic"):
