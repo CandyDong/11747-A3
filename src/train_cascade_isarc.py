@@ -200,12 +200,12 @@ for batch in batches:
 	train_loss.append(t_loss)
 	train_acc.append(t_acc)
 	if current_step % FLAGS.evaluate_every == 0:
-		print(current_step)
+		print("current step: {}".format(current_step))
 		print("Train loss {:g}, Train acc {:g}".format(np.mean(np.asarray(train_loss)), np.mean(np.asarray(train_acc))))
 		train_loss = []
 		train_acc = []
 		# Divide into batches
-		dev_batches = data_helpers.batch_iter_dev(list(zip(x_dev, author_dev, topic_dev, y_dev)), FLAGS.batch_size)
+		dev_batches = data_helpers.batch_iter_dev(list(zip(x_dev, y_dev)), FLAGS.batch_size)
 		dev_loss = []
 		ll = len(dev_batches)
 		conf_mat = np.zeros((2,2))
@@ -218,21 +218,19 @@ for batch in batches:
 		valid_accuracy = float(conf_mat[0][0]+conf_mat[1][1])/len(y_dev)
 		print("Valid loss {:g}, Valid acc {:g}".format(np.mean(np.asarray(dev_loss)), valid_accuracy))
 		print("Valid - Confusion Matrix: ")
-		print(conf_mat)
+		print("conf_mat: {}".format(conf_mat))
 		test_batches = data_helpers.batch_iter_dev(list(zip(x_test, y_test)), FLAGS.batch_size)
 		test_loss = []
 		conf_mat = np.zeros((2,2))
 		for test_batch in test_batches:
 			x_test_batch = x_test[test_batch[0]:test_batch[1]]
-			author_test_batch = author_test[test_batch[0]:test_batch[1]]
-			topic_test_batch = topic_test[test_batch[0]:test_batch[1]]
 			y_test_batch = y_test[test_batch[0]:test_batch[1]]
-			a, b = dev_step(x_test_batch, author_test_batch, topic_test_batch, y_test_batch)
+			a, b = dev_step(x_test_batch, y_test_batch)
 			test_loss.append(a)
 			conf_mat += b
 		print("Test loss {:g}, Test acc {:g}".format(np.mean(np.asarray(test_loss)), float(conf_mat[0][0]+conf_mat[1][1])/len(y_test)))
 		print("Test - Confusion Matrix: ")
-		print(conf_mat)
+		print("conf_mat: {}".format(conf_mat))
 		sys.stdout.flush()
 		if best_acc < valid_accuracy:
 			best_acc = valid_accuracy
