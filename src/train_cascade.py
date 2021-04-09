@@ -224,6 +224,7 @@ def train_step(x_batch, author_batch, topic_batch, y_batch):
     """
     A single training step
     """
+    print("y_batch: {}".format(y_batch))
     feed_dict = {
       cnn.input_x: x_batch,
       cnn.input_author: author_batch,

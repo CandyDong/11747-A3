@@ -7,12 +7,13 @@ import time
 import datetime
 import data_helpers
 import sys
-from text_cnn import TextCNN
+from text_cnn_isarc import TextCNN
 import os
 from tensorflow.contrib import learn
 import csv
 from time import sleep
 import pickle
+import ast
 
 #####################  GPU Configs  #################################
 
@@ -68,12 +69,12 @@ test_x = []
 test_y = []
 
 for i in range(len(revs)):
-	if revs[i]['split'] == 1:
+	if revs[i]['split'] == "1":
 		x_text.append(revs[i]['text'])
-		y.append(revs[i]['label'])
-	elif revs[i]['split'] == 0:
+		y.append(ast.literal_eval(revs[i]['label']))
+	elif revs[i]['split'] == "0":
 		test_x.append(revs[i]['text'])
-		test_y.append(revs[i]['label'])
+		test_y.append(ast.literal_eval(revs[i]['label']))
 	else:
 		raise AssertionError("split is {}".format(revs[i]['split']))
 
