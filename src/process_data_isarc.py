@@ -18,7 +18,6 @@ auth = tweepy.OAuthHandler(consumer_key, consumer_key_secret)
 auth.set_access_token(access_token, access_token_secret)
 api = tweepy.API(auth)
 
-COMMENTS_FILE = "../data/comments.json"
 TRAIN_MAP_FILE = "../data/isarcasm_train.csv"
 TEST_MAP_FILE = "../data/isarcasm_test.csv"
 

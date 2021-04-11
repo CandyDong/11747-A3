@@ -14,6 +14,7 @@ import csv
 from time import sleep
 import pickle
 import ast
+from sklearn.metrics import f1_score
 
 #####################  GPU Configs  #################################
 
@@ -43,7 +44,7 @@ tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (defau
 tf.flags.DEFINE_float("l2_reg_lambda", 0.5, "L2 regularization lambda (default: 0.0)")
 
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 4096, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
@@ -175,10 +176,11 @@ def dev_step(x_batch, y_batch, writer=None):
 	  cnn.input_y: y_batch,
 	  cnn.dropout_keep_prob: 1.0
 	}
-	step, loss, conf_mat = sess.run(
-		[global_step, cnn.loss, cnn.confusion_matrix],
+	step, loss, conf_mat, y_pred, y_true = sess.run(
+		[global_step, cnn.loss, cnn.confusion_matrix, cnn.predictions, cnn.correct_predictions],
 		feed_dict)
-	return loss, conf_mat
+	f_score = f1_score(y_true, y_pred, average='weighted')
+	return loss, conf_mat, f_score
 	
 
 # Generate batches
@@ -212,7 +214,7 @@ for batch in batches:
 		for dev_batch in dev_batches:
 			x_dev_batch = x_dev[dev_batch[0]:dev_batch[1]]
 			y_dev_batch = y_dev[dev_batch[0]:dev_batch[1]]
-			a, b = dev_step(x_dev_batch, y_dev_batch)
+			a, b, _ = dev_step(x_dev_batch, y_dev_batch)
 			dev_loss.append(a)
 			conf_mat += b
 		valid_accuracy = float(conf_mat[0][0]+conf_mat[1][1])/len(y_dev)
@@ -221,14 +223,22 @@ for batch in batches:
 		print("conf_mat: {}".format(conf_mat))
 		test_batches = data_helpers.batch_iter_dev(list(zip(x_test, y_test)), FLAGS.batch_size)
 		test_loss = []
+		test_f_score = []
 		conf_mat = np.zeros((2,2))
 		for test_batch in test_batches:
 			x_test_batch = x_test[test_batch[0]:test_batch[1]]
 			y_test_batch = y_test[test_batch[0]:test_batch[1]]
-			a, b = dev_step(x_test_batch, y_test_batch)
+			a, b, c = dev_step(x_test_batch, y_test_batch)
 			test_loss.append(a)
+			test_f_score.append(c)
 			conf_mat += b
-		print("Test loss {:g}, Test acc {:g}".format(np.mean(np.asarray(test_loss)), float(conf_mat[0][0]+conf_mat[1][1])/len(y_test)))
+		# print("Test loss {:g}, Test acc {:g}".format(
+		# 	np.mean(np.asarray(test_loss)), 
+		# 	float(conf_mat[0][0]+conf_mat[1][1])/len(y_test)))
+		print("Test loss {:g}, Test acc {:g}, F score {:g}".format(
+			np.mean(np.asarray(test_loss)), 
+			float(conf_mat[0][0]+conf_mat[1][1])/len(y_test), 
+			np.mean(np.asarray(test_f_score))))
 		print("Test - Confusion Matrix: ")
 		print("conf_mat: {}".format(conf_mat))
 		sys.stdout.flush()
