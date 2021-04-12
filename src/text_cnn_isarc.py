@@ -9,7 +9,7 @@ class TextCNN(object):
     """
     def __init__(
         self, sequence_length, num_classes, vocab_size, word2vec_W, word_idx_map, 
-        embedding_size, batch_size, filter_sizes, num_filters, l2_reg_lambda=0.0):
+        embedding_size, batch_size, filter_sizes, num_filters, class_weights, l2_reg_lambda=0.0):
 
         # Placeholders for input, output and dropout
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
@@ -81,7 +81,12 @@ class TextCNN(object):
 
         # CalculateMean cross-entropy loss
         with tf.name_scope("loss"):
-            losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, labels=self.input_y)
+            # losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, labels=self.input_y)
+            # losses = losses * tf.reduce_sum(class_weights * self.scores, axis=1)
+
+            weight_per_label = tf.transpose(tf.matmul(self.input_y, tf.transpose(class_weights))) #shape [1, batch_size]
+            losses = tf.multiply(weight_per_label
+                     , tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, labels=self.input_y))
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
 
         # Accuracy

@@ -15,6 +15,8 @@ from time import sleep
 import pickle
 import ast
 from sklearn.metrics import f1_score
+import copy
+import math
 
 #####################  GPU Configs  #################################
 
@@ -44,9 +46,9 @@ tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (defau
 tf.flags.DEFINE_float("l2_reg_lambda", 0.5, "L2 regularization lambda (default: 0.0)")
 
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("batch_size", 32, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("num_epochs", 50, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("evaluate_every", 50, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 # Misc Parameters
@@ -63,24 +65,47 @@ print("data loaded!")# Load data
 
 max_l = 100
 
+# x_text_pos = []
+# x_text_neg = []
 x_text = []
+
+# y_pos = []
+# y_neg = []
 y = []
 
 test_x = []
 test_y = []
 
+pos, neg = 0, 0
 for i in range(len(revs)):
 	if revs[i]['split'] == "1":
 		x_text.append(revs[i]['text'])
 		y.append(ast.literal_eval(revs[i]['label']))
+		if ast.literal_eval(revs[i]['label']) == [0, 1]: # sarcastic
+			pos += 1
+		elif ast.literal_eval(revs[i]['label']) == [1, 0]:
+			neg += 1
+		else:
+			raise AssertionError("revs[{}]['label'] is {}".format(i, revs[i]['label']))
 	elif revs[i]['split'] == "0":
 		test_x.append(revs[i]['text'])
 		test_y.append(ast.literal_eval(revs[i]['label']))
 	else:
 		raise AssertionError("split is {}".format(revs[i]['split']))
 
+total = neg + pos
+
+weight_for_0 = (1 / neg)*(total)/2.0 
+weight_for_1 = (1 / pos)*(total)/2.0
+
+class_weights = [[weight_for_0, weight_for_1]]
+
+print('Weight for class 0: {:.2f}'.format(weight_for_0))
+print('Weight for class 1: {:.2f}'.format(weight_for_1))
+
 y = np.asarray(y)
 test_y = np.asarray(test_y)
+
 
 # get word indices
 x = []
@@ -116,13 +141,45 @@ y_shuffled = y[shuffle_indices]
 dev_sample_index = -1 * int(FLAGS.dev_sample_percentage * float(len(y)))
 x_train, x_dev = x_shuffled[:dev_sample_index], x_shuffled[dev_sample_index:]
 y_train, y_dev = y_shuffled[:dev_sample_index], y_shuffled[dev_sample_index:]
-print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
+
+# # balance training dataset
+# pos_rows, pos_cols = np.where(y_train==[0,1]) # "sarcastic"
+# pos_idx = [r for r, c in zip(pos_rows, pos_cols) if c == 0]
+# total = len(y_train)
+# pos = len(pos_idx)
+# neg = total-pos
+
+# num_copy = int(math.floor(neg/pos))-1
+# print('Training examples:\n    Total: {}\n    \
+# 	Positive: {} ({:.2f}% of total), \
+# 	Negative: {} ({:.2f}% of total), \
+# 	Num copy: {}\n'.format(
+#     total, pos, 100 * pos / total, 
+#     neg, 100 * neg / total, 
+#     num_copy))
+# x_train_pos, y_train_pos = np.take(x_train, pos_idx, axis=0), np.take(y_train, pos_idx, axis=0)
+# x_train_pos_copies = np.repeat(x_train_pos, num_copy, axis=0)
+# y_train_pos_copies = np.repeat(y_train_pos, num_copy, axis=0)
+
+# x_train = np.vstack((x_train, x_train_pos_copies))
+# y_train = np.vstack((y_train, y_train_pos_copies))
+# assert(len(x_train) == len(y_train))
+
+# shuffle_indices = np.random.permutation(np.arange(len(y_train)))
+# x_train = x_train[shuffle_indices]
+# y_train = y_train[shuffle_indices]
+
+print("Train/Dev split: {:d}/{:d}, Test: {:d}".format(len(y_train), len(y_dev), len(y_test)))
 x_train = np.asarray(x_train)
 x_dev = np.asarray(x_dev)
 y_train = np.asarray(y_train)
 y_dev = np.asarray(y_dev)
 word_idx_map["@"] = 0 # TODO: ?
 rev_dict = {v: k for k, v in word_idx_map.items()}
+
+# Weight for class 0: 0.60
+# Weight for class 1: 2.93
+# Train/Dev split: 2646/294, Test: 741
 
 
 # Training
@@ -141,6 +198,7 @@ with tf.Graph().as_default():
 			batch_size=FLAGS.batch_size,
 			filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
 			num_filters=FLAGS.num_filters,
+			class_weights=class_weights,
 			l2_reg_lambda=FLAGS.l2_reg_lambda)
 
 		# Define Training procedure
