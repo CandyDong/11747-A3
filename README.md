@@ -1,6 +1,6 @@
-# CASCADE: Contextual Sarcasm Detection in Online Discussion Forums
+# CMU CS 11-747 (Neural Networks for NLP), Spring 2021, Assignment 3
 
-paper [CASCADE: Contextual Sarcasm Detection in Online Discussion Forums](http://aclweb.org/anthology/C18-1156) (COLING 2018, New Mexico).
+[CASCADE: Contextual Sarcasm Detection in Online Discussion Forums](http://aclweb.org/anthology/C18-1156) (COLING 2018, New Mexico).
 
 ## Description
 
