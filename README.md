@@ -16,22 +16,13 @@ We implemented a content-based variant of the original CASCADE model for the pur
 5. Download the [FastText pre-trained embeddings](https://dl.fbaipublicfiles.com/fasttext/vectors-english/crawl-300d-2M.vec.zip) and extract it somewhere.
 
 
-## Running CASCADE
-
-<p align="center">
-  <img src="overall_model.jpg" alt="Hybrid CNN" width="90%">
-</p>
-
-Hybrid CNN combining user-embeddings and discourse-features with textual modeling.
+## Running the content-based variant of CASCADE
  
 ```bash
 cd src
 python process_data_isarc.py [path/to/FastText_embedding]
 python train_cascade_isarc.py
 ```
-
-The CNN codebase has been adapted from the [repo cnn-text-classification-tf from Denny Britz](https://github.com/dennybritz/cnn-text-classification-tf).
-
 
 ## References
 
